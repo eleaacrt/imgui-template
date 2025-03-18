@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.5 macOS - www.glfw.org
+// GLFW 3.4 macOS - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2009-2019 Camilla Löwy <elmindreda@glfw.org>
 //
@@ -23,14 +23,13 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
 #include "internal.h"
 
-#if defined(_GLFW_COCOA)
-
 #include <unistd.h>
 #include <math.h>
-#include <assert.h>
 
 static void makeContextCurrentNSGL(_GLFWwindow* window)
 {
@@ -82,10 +81,11 @@ static void swapIntervalNSGL(int interval)
     @autoreleasepool {
 
     _GLFWwindow* window = _glfwPlatformGetTls(&_glfw.contextSlot);
-    assert(window != NULL);
-
-    [window->context.nsgl.object setValues:&interval
-                              forParameter:NSOpenGLContextParameterSwapInterval];
+    if (window)
+    {
+        [window->context.nsgl.object setValues:&interval
+                                  forParameter:NSOpenGLContextParameterSwapInterval];
+    }
 
     } // autoreleasepool
 }
@@ -162,7 +162,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
     if (ctxconfig->client == GLFW_OPENGL_ES_API)
     {
         _glfwInputError(GLFW_API_UNAVAILABLE,
-                        "NSGL: OpenGL ES is not available via NSGL");
+                        "NSGL: OpenGL ES is not available on macOS");
         return GLFW_FALSE;
     }
 
@@ -176,23 +176,16 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
         }
     }
 
-    if (ctxconfig->major >= 3 && ctxconfig->profile == GLFW_OPENGL_COMPAT_PROFILE)
-    {
-        _glfwInputError(GLFW_VERSION_UNAVAILABLE,
-                        "NSGL: The compatibility profile is not available on macOS");
-        return GLFW_FALSE;
-    }
-
-    // Context robustness modes (GL_KHR_robustness) are not supported by
+    // Context robustness modes (GL_KHR_robustness) are not yet supported by
     // macOS but are not a hard constraint, so ignore and continue
 
-    // Context release behaviors (GL_KHR_context_flush_control) are not 
+    // Context release behaviors (GL_KHR_context_flush_control) are not yet
     // supported by macOS but are not a hard constraint, so ignore and continue
 
-    // Debug contexts (GL_KHR_debug) are not supported by macOS but are not
+    // Debug contexts (GL_KHR_debug) are not yet supported by macOS but are not
     // a hard constraint, so ignore and continue
 
-    // No-error contexts (GL_KHR_no_error) are not supported by macOS but
+    // No-error contexts (GL_KHR_no_error) are not yet supported by macOS but
     // are not a hard constraint, so ignore and continue
 
 #define ADD_ATTRIB(a) \
@@ -218,11 +211,14 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
         ADD_ATTRIB(kCGLPFASupportsAutomaticGraphicsSwitching);
     }
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
     if (ctxconfig->major >= 4)
     {
         SET_ATTRIB(NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion4_1Core);
     }
-    else if (ctxconfig->major >= 3)
+    else
+#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
+    if (ctxconfig->major >= 3)
     {
         SET_ATTRIB(NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core);
     }
@@ -338,7 +334,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
                                   forParameter:NSOpenGLContextParameterSurfaceOpacity];
     }
 
-    [window->ns.view setWantsBestResolutionOpenGLSurface:window->ns.scaleFramebuffer];
+    [window->ns.view setWantsBestResolutionOpenGLSurface:window->ns.retina];
 
     [window->context.nsgl.object setView:window->ns.view];
 
@@ -359,6 +355,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
 
 GLFWAPI id glfwGetNSGLContext(GLFWwindow* handle)
 {
+    _GLFWwindow* window = (_GLFWwindow*) handle;
     _GLFW_REQUIRE_INIT_OR_RETURN(nil);
 
     if (_glfw.platform.platformID != GLFW_PLATFORM_COCOA)
@@ -368,9 +365,6 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow* handle)
         return nil;
     }
 
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-    assert(window != NULL);
-
     if (window->context.source != GLFW_NATIVE_CONTEXT_API)
     {
         _glfwInputError(GLFW_NO_WINDOW_CONTEXT, NULL);
@@ -379,6 +373,4 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow* handle)
 
     return window->context.nsgl.object;
 }
-
-#endif // _GLFW_COCOA
 

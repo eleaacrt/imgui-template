@@ -44,8 +44,6 @@ Index of this file:
 
 // System includes
 #include <stdint.h>     // intptr_t
-#include <cmath>
-#include <utility>
 
 //-------------------------------------------------------------------------
 // Warnings
@@ -704,9 +702,6 @@ bool ImGui::ButtonEx(const char* label, const ImVec2& size_arg, ImGuiButtonFlags
 
     bool hovered, held;
     bool pressed = ButtonBehavior(bb, id, &hovered, &held, flags);
-    
-    if (hovered)
-        SetMouseCursor(ImGuiMouseCursor_Hand);
 
     // Render
     const ImU32 col = GetColorU32((held && hovered) ? ImGuiCol_ButtonActive : hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Button);
@@ -2112,7 +2107,7 @@ void ImGui::DataTypeApplyOp(ImGuiDataType data_type, int op, void* output, const
 
 // User can input math operators (e.g. +100) to edit a numerical values.
 // NB: This is _not_ a full expression evaluator. We should probably add one and replace this dumb mess..
-bool ImGui::DataTypeApplyFromText(const char* buf, ImGuiDataType data_type, void* p_data, const char* format, CustomParser custom_parser)
+bool ImGui::DataTypeApplyFromText(const char* buf, ImGuiDataType data_type, void* p_data, const char* format)
 {
     while (ImCharIsBlankA(*buf))
         buf++;
@@ -2124,38 +2119,31 @@ bool ImGui::DataTypeApplyFromText(const char* buf, ImGuiDataType data_type, void
     ImGuiDataTypeTempStorage data_backup;
     memcpy(&data_backup, p_data, type_info->Size);
 
-    if(custom_parser == nullptr)
-    {
-        // Sanitize format
-        // - For float/double we have to ignore format with precision (e.g. "%.2f") because sscanf doesn't take them in, so force them into %f and %lf
-        // - In theory could treat empty format as using default, but this would only cover rare/bizarre case of using InputScalar() + integer + format string without %.
-        char format_sanitized[32];
-        if (data_type == ImGuiDataType_Float || data_type == ImGuiDataType_Double)
-            format = type_info->ScanFmt;
-        else
-            format = ImParseFormatSanitizeForScanning(format, format_sanitized, IM_ARRAYSIZE(format_sanitized));
-
-        // Small types need a 32-bit buffer to receive the result from scanf()
-        int v32 = 0;
-        if (sscanf(buf, format, type_info->Size >= 4 ? p_data : &v32) < 1)
-            return false;
-        if (type_info->Size < 4)
-        {
-            if (data_type == ImGuiDataType_S8)
-                *(ImS8*)p_data = (ImS8)ImClamp(v32, (int)IM_S8_MIN, (int)IM_S8_MAX);
-            else if (data_type == ImGuiDataType_U8)
-                *(ImU8*)p_data = (ImU8)ImClamp(v32, (int)IM_U8_MIN, (int)IM_U8_MAX);
-            else if (data_type == ImGuiDataType_S16)
-                *(ImS16*)p_data = (ImS16)ImClamp(v32, (int)IM_S16_MIN, (int)IM_S16_MAX);
-            else if (data_type == ImGuiDataType_U16)
-                *(ImU16*)p_data = (ImU16)ImClamp(v32, (int)IM_U16_MIN, (int)IM_U16_MAX);
-            else
-                IM_ASSERT(0);
-        }
-    }
+    // Sanitize format
+    // - For float/double we have to ignore format with precision (e.g. "%.2f") because sscanf doesn't take them in, so force them into %f and %lf
+    // - In theory could treat empty format as using default, but this would only cover rare/bizarre case of using InputScalar() + integer + format string without %.
+    char format_sanitized[32];
+    if (data_type == ImGuiDataType_Float || data_type == ImGuiDataType_Double)
+        format = type_info->ScanFmt;
     else
+        format = ImParseFormatSanitizeForScanning(format, format_sanitized, IM_ARRAYSIZE(format_sanitized));
+
+    // Small types need a 32-bit buffer to receive the result from scanf()
+    int v32 = 0;
+    if (sscanf(buf, format, type_info->Size >= 4 ? p_data : &v32) < 1)
+        return false;
+    if (type_info->Size < 4)
     {
-        (*custom_parser)(buf, p_data);
+        if (data_type == ImGuiDataType_S8)
+            *(ImS8*)p_data = (ImS8)ImClamp(v32, (int)IM_S8_MIN, (int)IM_S8_MAX);
+        else if (data_type == ImGuiDataType_U8)
+            *(ImU8*)p_data = (ImU8)ImClamp(v32, (int)IM_U8_MIN, (int)IM_U8_MAX);
+        else if (data_type == ImGuiDataType_S16)
+            *(ImS16*)p_data = (ImS16)ImClamp(v32, (int)IM_S16_MIN, (int)IM_S16_MAX);
+        else if (data_type == ImGuiDataType_U16)
+            *(ImU16*)p_data = (ImU16)ImClamp(v32, (int)IM_U16_MIN, (int)IM_U16_MAX);
+        else
+            IM_ASSERT(0);
     }
 
     return memcmp(&data_backup, p_data, type_info->Size) != 0;
@@ -2272,7 +2260,7 @@ TYPE ImGui::RoundScalarWithFormatT(const char* format, ImGuiDataType data_type, 
 
 // This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
 template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
-bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const TYPE v_min, const TYPE v_max, const char* format, ImGuiSliderFlags flags, bool invert_drag_direction)
+bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const TYPE v_min, const TYPE v_max, const char* format, ImGuiSliderFlags flags)
 {
     ImGuiContext& g = *GImGui;
     const ImGuiAxis axis = (flags & ImGuiSliderFlags_Vertical) ? ImGuiAxis_Y : ImGuiAxis_X;
@@ -2307,8 +2295,6 @@ bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const
 
     // For vertical drag we currently assume that Up=higher value (like we do with vertical sliders). This may become a parameter.
     if (axis == ImGuiAxis_Y)
-        adjust_delta = -adjust_delta;
-    if (invert_drag_direction)
         adjust_delta = -adjust_delta;
 
     // For logarithmic use our range is effectively 0..1 so scale the delta into that range
@@ -2392,92 +2378,6 @@ bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const
     return true;
 }
 
-template<typename TYPE>
-static TYPE TYPE_MAX();
-template<>
-float TYPE_MAX(){ return FLT_MAX; }
-template<>
-double TYPE_MAX(){ return DBL_MAX; }
-template<typename TYPE>
-static TYPE sign(TYPE x)
-{
-    return x < 0 ? -1 : 1;
-}
-template<typename TYPE>
-static TYPE abs_log(TYPE x)
-{
-    const TYPE res = std::log(std::abs(x));
-    if (std::isinf(res) || std::isnan(res))
-        return -TYPE_MAX<TYPE>();
-    return res;
-};
-template<typename TYPE>
-static TYPE clamped_exp(TYPE x)
-{
-    const TYPE res = std::exp(x);
-    if (std::isinf(res))
-        return TYPE_MAX<TYPE>();
-    return res;
-};
-
-template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
-static bool DragBehaviorT_CorrectLogarithmicBehaviour(ImGuiDataType data_type, TYPE* v, float v_speed, TYPE v_min, TYPE v_max, const char* format, ImGuiSliderFlags flags)
-{
-    const bool is_logarithmic = (flags & ImGuiSliderFlags_Logarithmic) != 0;
-    flags = flags & ~ImGuiSliderFlags_Logarithmic; // Remove logarithmic flag, we deal with it ourselves.
-
-    TYPE val = *v;
-    TYPE val_sign;
-    if (is_logarithmic)
-    {
-        if (val < v_min)
-            val = v_min;
-        if (val > v_max)
-            val = v_max;
-        val_sign = sign(val);
-        if (std::abs(val) < 0.0001) // Avoids taking the log of 0
-            val = sign(val) * 0.0001;
-        val = std::log(std::abs(val));
-        if (val_sign > 0)
-        {
-            if (v_min < 0)
-                v_min = -TYPE_MAX<TYPE>();
-            else
-                v_min = abs_log(v_min);
-            if (v_max < 0)
-                v_max = TYPE_MAX<TYPE>();
-            else
-                v_max = abs_log(v_max);
-        }
-        else
-        {
-            std::swap(v_min, v_max); // The absolute value flips the order when val is < 0
-            if (v_min < 0)
-                v_min = abs_log(v_min);
-            else
-                v_min = -TYPE_MAX<TYPE>();
-            if (v_max < 0)
-                v_max = abs_log(v_max);
-            else
-                v_max = TYPE_MAX<TYPE>();
-        }
-    }
-
-    const bool has_changed = ImGui::DragBehaviorT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, &val, v_speed, v_min, v_max, format, flags, /* invert_direction = */ is_logarithmic && val_sign < 0.f);
-
-    if (has_changed)
-    {
-        if (is_logarithmic)
-        {
-            val = clamped_exp(val) * val_sign;
-            if (std::abs(val) < 0.0001) // Allows transition between positive and negative numbers: avoids beeing stuck on zero and never getting past it while dragging.
-                val = -sign(val) * 0.0001;
-        }
-        *v = val;
-    }
-    return has_changed;
-}
-
 bool ImGui::DragBehavior(ImGuiID id, ImGuiDataType data_type, void* p_v, float v_speed, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags)
 {
     // Read imgui.cpp "API BREAKING CHANGES" section for 1.78 if you hit this assert.
@@ -2503,12 +2403,12 @@ bool ImGui::DragBehavior(ImGuiID id, ImGuiDataType data_type, void* p_v, float v
     case ImGuiDataType_U8:     { ImU32 v32 = (ImU32)*(ImU8*)p_v;  bool r = DragBehaviorT<ImU32, ImS32, float>(ImGuiDataType_U32, &v32, v_speed, p_min ? *(const ImU8*) p_min : IM_U8_MIN,  p_max ? *(const ImU8*)p_max  : IM_U8_MAX,  format, flags); if (r) *(ImU8*)p_v = (ImU8)v32; return r; }
     case ImGuiDataType_S16:    { ImS32 v32 = (ImS32)*(ImS16*)p_v; bool r = DragBehaviorT<ImS32, ImS32, float>(ImGuiDataType_S32, &v32, v_speed, p_min ? *(const ImS16*)p_min : IM_S16_MIN, p_max ? *(const ImS16*)p_max : IM_S16_MAX, format, flags); if (r) *(ImS16*)p_v = (ImS16)v32; return r; }
     case ImGuiDataType_U16:    { ImU32 v32 = (ImU32)*(ImU16*)p_v; bool r = DragBehaviorT<ImU32, ImS32, float>(ImGuiDataType_U32, &v32, v_speed, p_min ? *(const ImU16*)p_min : IM_U16_MIN, p_max ? *(const ImU16*)p_max : IM_U16_MAX, format, flags); if (r) *(ImU16*)p_v = (ImU16)v32; return r; }
-    case ImGuiDataType_S32:    return DragBehaviorT                            <ImS32, ImS32, float >(data_type, (ImS32*)p_v,  v_speed, p_min ? *(const ImS32* )p_min : IM_S32_MIN, p_max ? *(const ImS32* )p_max : IM_S32_MAX, format, flags);
-    case ImGuiDataType_U32:    return DragBehaviorT                            <ImU32, ImS32, float >(data_type, (ImU32*)p_v,  v_speed, p_min ? *(const ImU32* )p_min : IM_U32_MIN, p_max ? *(const ImU32* )p_max : IM_U32_MAX, format, flags);
-    case ImGuiDataType_S64:    return DragBehaviorT                            <ImS64, ImS64, double>(data_type, (ImS64*)p_v,  v_speed, p_min ? *(const ImS64* )p_min : IM_S64_MIN, p_max ? *(const ImS64* )p_max : IM_S64_MAX, format, flags);
-    case ImGuiDataType_U64:    return DragBehaviorT                            <ImU64, ImS64, double>(data_type, (ImU64*)p_v,  v_speed, p_min ? *(const ImU64* )p_min : IM_U64_MIN, p_max ? *(const ImU64* )p_max : IM_U64_MAX, format, flags);
-    case ImGuiDataType_Float:  return DragBehaviorT_CorrectLogarithmicBehaviour<float, float, float >(data_type, (float*)p_v,  v_speed, p_min ? *(const float* )p_min : -FLT_MAX,   p_max ? *(const float* )p_max : FLT_MAX,    format, flags);
-    case ImGuiDataType_Double: return DragBehaviorT_CorrectLogarithmicBehaviour<double,double,double>(data_type, (double*)p_v, v_speed, p_min ? *(const double*)p_min : -DBL_MAX,   p_max ? *(const double*)p_max : DBL_MAX,    format, flags);
+    case ImGuiDataType_S32:    return DragBehaviorT<ImS32, ImS32, float >(data_type, (ImS32*)p_v,  v_speed, p_min ? *(const ImS32* )p_min : IM_S32_MIN, p_max ? *(const ImS32* )p_max : IM_S32_MAX, format, flags);
+    case ImGuiDataType_U32:    return DragBehaviorT<ImU32, ImS32, float >(data_type, (ImU32*)p_v,  v_speed, p_min ? *(const ImU32* )p_min : IM_U32_MIN, p_max ? *(const ImU32* )p_max : IM_U32_MAX, format, flags);
+    case ImGuiDataType_S64:    return DragBehaviorT<ImS64, ImS64, double>(data_type, (ImS64*)p_v,  v_speed, p_min ? *(const ImS64* )p_min : IM_S64_MIN, p_max ? *(const ImS64* )p_max : IM_S64_MAX, format, flags);
+    case ImGuiDataType_U64:    return DragBehaviorT<ImU64, ImS64, double>(data_type, (ImU64*)p_v,  v_speed, p_min ? *(const ImU64* )p_min : IM_U64_MIN, p_max ? *(const ImU64* )p_max : IM_U64_MAX, format, flags);
+    case ImGuiDataType_Float:  return DragBehaviorT<float, float, float >(data_type, (float*)p_v,  v_speed, p_min ? *(const float* )p_min : -FLT_MAX,   p_max ? *(const float* )p_max : FLT_MAX,    format, flags);
+    case ImGuiDataType_Double: return DragBehaviorT<double,double,double>(data_type, (double*)p_v, v_speed, p_min ? *(const double*)p_min : -DBL_MAX,   p_max ? *(const double*)p_max : DBL_MAX,    format, flags);
     case ImGuiDataType_COUNT:  break;
     }
     IM_ASSERT(0);
@@ -2517,7 +2417,7 @@ bool ImGui::DragBehavior(ImGuiID id, ImGuiDataType data_type, void* p_v, float v
 
 // Note: p_data, p_min and p_max are _pointers_ to a memory address holding the data. For a Drag widget, p_min and p_max are optional.
 // Read code of e.g. DragFloat(), DragInt() etc. or examples in 'Demo->Widgets->Data Types' to understand how to use this function directly.
-bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data, float v_speed, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags, CustomParser custom_parser)
+bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data, float v_speed, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
@@ -2577,7 +2477,7 @@ bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data,
     {
         // Only clamp CTRL+Click input when ImGuiSliderFlags_AlwaysClamp is set
         const bool is_clamp_input = (flags & ImGuiSliderFlags_AlwaysClamp) != 0 && (p_min == NULL || p_max == NULL || DataTypeCompare(data_type, p_min, p_max) < 0);
-        return TempInputScalar(frame_bb, id, label, data_type, p_data, format, is_clamp_input ? p_min : NULL, is_clamp_input ? p_max : NULL, custom_parser);
+        return TempInputScalar(frame_bb, id, label, data_type, p_data, format, is_clamp_input ? p_min : NULL, is_clamp_input ? p_max : NULL);
     }
 
     // Draw frame
@@ -2599,8 +2499,7 @@ bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data,
 
     if (label_size.x > 0.0f)
         RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
-    
-    LockMousePos((flags & ImGuiSliderFlags_Vertical) ? ImGuiAxesMask_Y : ImGuiAxesMask_X);
+
     IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | (temp_input_allowed ? ImGuiItemStatusFlags_Inputable : 0));
     return value_changed;
 }
@@ -2640,9 +2539,9 @@ bool ImGui::DragScalarN(const char* label, ImGuiDataType data_type, void* p_data
     return value_changed;
 }
 
-bool ImGui::DragFloat(const char* label, float* v, float v_speed, float v_min, float v_max, const char* format, ImGuiSliderFlags flags, CustomParser custom_parser)
+bool ImGui::DragFloat(const char* label, float* v, float v_speed, float v_min, float v_max, const char* format, ImGuiSliderFlags flags)
 {
-    return DragScalar(label, ImGuiDataType_Float, v, v_speed, &v_min, &v_max, format, flags, custom_parser);
+    return DragScalar(label, ImGuiDataType_Float, v, v_speed, &v_min, &v_max, format, flags);
 }
 
 bool ImGui::DragFloat2(const char* label, float v[2], float v_speed, float v_min, float v_max, const char* format, ImGuiSliderFlags flags)
@@ -3528,7 +3427,7 @@ static inline ImGuiInputTextFlags InputScalar_DefaultCharsFilter(ImGuiDataType d
 // Note that Drag/Slider functions are only forwarding the min/max values clamping values if the ImGuiSliderFlags_AlwaysClamp flag is set!
 // This is intended: this way we allow CTRL+Click manual input to set a value out of bounds, for maximum flexibility.
 // However this may not be ideal for all uses, as some user code may break on out of bound values.
-bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImGuiDataType data_type, void* p_data, const char* format, const void* p_clamp_min, const void* p_clamp_max, CustomParser custom_parser)
+bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImGuiDataType data_type, void* p_data, const char* format, const void* p_clamp_min, const void* p_clamp_max)
 {
     // FIXME: May need to clarify display behavior if format doesn't contain %.
     // "%d" -> "%d" / "There are %d items" -> "%d" / "items" -> "%d" (fallback). Also see #6405
@@ -3542,8 +3441,7 @@ bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImG
     ImStrTrimBlanks(data_buf);
 
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_AutoSelectAll | (ImGuiInputTextFlags)ImGuiInputTextFlags_NoMarkEdited;
-    if(custom_parser == nullptr)
-        flags |= InputScalar_DefaultCharsFilter(data_type, format);
+    flags |= InputScalar_DefaultCharsFilter(data_type, format);
 
     bool value_changed = false;
     if (TempInputText(bb, id, label, data_buf, IM_ARRAYSIZE(data_buf), flags))
@@ -3554,7 +3452,7 @@ bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImG
         memcpy(&data_backup, p_data, data_type_size);
 
         // Apply new value (or operations) then clamp
-        DataTypeApplyFromText(data_buf, data_type, p_data, format, custom_parser);
+        DataTypeApplyFromText(data_buf, data_type, p_data, format);
         if (p_clamp_min || p_clamp_max)
         {
             if (p_clamp_min && p_clamp_max && DataTypeCompare(data_type, p_clamp_min, p_clamp_max) > 0)
@@ -3572,7 +3470,7 @@ bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImG
 
 // Note: p_data, p_step, p_step_fast are _pointers_ to a memory address holding the data. For an Input widget, p_step and p_step_fast are optional.
 // Read code of e.g. InputFloat(), InputInt() etc. or examples in 'Demo->Widgets->Data Types' to understand how to use this function directly.
-bool ImGui::InputScalar(const char* label, ImGuiDataType data_type, void* p_data, const void* p_step, const void* p_step_fast, const char* format, ImGuiInputTextFlags flags, ImDrawFlags draw_flags, CustomParser custom_parser)
+bool ImGui::InputScalar(const char* label, ImGuiDataType data_type, void* p_data, const void* p_step, const void* p_step_fast, const char* format, ImGuiInputTextFlags flags, ImDrawFlags draw_flags)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
@@ -3596,7 +3494,7 @@ bool ImGui::InputScalar(const char* label, ImGuiDataType data_type, void* p_data
     if (p_step == NULL)
     {
         if (InputText(label, buf, IM_ARRAYSIZE(buf), flags))
-            value_changed = DataTypeApplyFromText(buf, data_type, p_data, format, custom_parser);
+            value_changed = DataTypeApplyFromText(buf, data_type, p_data, format);
     }
     else
     {
@@ -3606,7 +3504,7 @@ bool ImGui::InputScalar(const char* label, ImGuiDataType data_type, void* p_data
         PushID(label);
         SetNextItemWidth(ImMax(1.0f, CalcItemWidth() - (button_size + style.ItemInnerSpacing.x) * 2));
         if (InputText("", buf, IM_ARRAYSIZE(buf), flags, nullptr, nullptr, draw_flags)) // PushId(label) + "" gives us the expected ID from outside point of view
-            value_changed = DataTypeApplyFromText(buf, data_type, p_data, format, custom_parser);
+            value_changed = DataTypeApplyFromText(buf, data_type, p_data, format);
         IMGUI_TEST_ENGINE_ITEM_INFO(g.LastItemData.ID, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Inputable);
 
         // Step buttons

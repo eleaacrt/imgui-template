@@ -330,10 +330,8 @@ static void ImGui_ImplWGPU_SetupRenderState(ImDrawData* draw_data, WGPURenderPas
 // (this used to be set in io.RenderDrawListsFn and called by ImGui::Render(), but you can now call this directly from your main loop)
 void ImGui_ImplWGPU_RenderDrawData(ImDrawData* draw_data, WGPURenderPassEncoder pass_encoder)
 {
-    // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
-    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
-    if (fb_width <= 0 || fb_height <= 0)
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
         return;
 
     // FIXME: Assuming that this only gets called once per frame!
@@ -452,13 +450,6 @@ void ImGui_ImplWGPU_RenderDrawData(ImDrawData* draw_data, WGPURenderPassEncoder 
                 // Project scissor/clipping rectangles into framebuffer space
                 ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
                 ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
-
-                // Clamp to viewport as wgpuRenderPassEncoderSetScissorRect() won't accept values that are off bounds
-                if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
-                if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
-                if (clip_max.x > fb_width) { clip_max.x = (float)fb_width; }
-                if (clip_max.y > fb_height) { clip_max.y = (float)fb_height; }
-                
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 
@@ -528,9 +519,9 @@ static void ImGui_ImplWGPU_CreateFontsTexture()
         sampler_desc.minFilter = WGPUFilterMode_Linear;
         sampler_desc.magFilter = WGPUFilterMode_Linear;
         sampler_desc.mipmapFilter = WGPUMipmapFilterMode_Linear;
-        sampler_desc.addressModeU = WGPUAddressMode_ClampToEdge;
-        sampler_desc.addressModeV = WGPUAddressMode_ClampToEdge;
-        sampler_desc.addressModeW = WGPUAddressMode_ClampToEdge;
+        sampler_desc.addressModeU = WGPUAddressMode_Repeat;
+        sampler_desc.addressModeV = WGPUAddressMode_Repeat;
+        sampler_desc.addressModeW = WGPUAddressMode_Repeat;
         sampler_desc.maxAnisotropy = 1;
         bd->renderResources.Sampler = wgpuDeviceCreateSampler(bd->wgpuDevice, &sampler_desc);
     }
