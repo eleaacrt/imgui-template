@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 macOS - www.glfw.org
+// GLFW 3.5 macOS - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2009-2019 Camilla Löwy <elmindreda@glfw.org>
 //
@@ -23,13 +23,16 @@
 //    distribution.
 //
 //========================================================================
-// It is fine to use C99 in this file because it will not be built with VS
-//========================================================================
 
 #include "internal.h"
 
+#if defined(_GLFW_COCOA)
+
+#import <QuartzCore/CAMetalLayer.h>
+
 #include <float.h>
 #include <string.h>
+#include <assert.h>
 
 // HACK: This enum value is missing from framework headers on OS X 10.11 despite
 //       having been (according to documentation) added in Mac OS X 10.7
@@ -309,10 +312,13 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
 - (void)windowDidChangeOcclusionState:(NSNotification* )notification
 {
-    if ([window->ns.object occlusionState] & NSWindowOcclusionStateVisible)
-        window->ns.occluded = GLFW_FALSE;
-    else
-        window->ns.occluded = GLFW_TRUE;
+    if ([window->ns.object respondsToSelector:@selector(occlusionState)])
+    {
+        if ([window->ns.object occlusionState] & NSWindowOcclusionStateVisible)
+            window->ns.occluded = GLFW_FALSE;
+        else
+            window->ns.occluded = GLFW_TRUE;
+    }
 }
 
 @end
@@ -508,7 +514,7 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
     if (xscale != window->ns.xscale || yscale != window->ns.yscale)
     {
-        if (window->ns.retina && window->ns.layer)
+        if (window->ns.scaleFramebuffer && window->ns.layer)
             [window->ns.layer setContentsScale:[window->ns.object backingScaleFactor]];
 
         window->ns.xscale = xscale;
@@ -791,7 +797,19 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
         contentRect = NSMakeRect(xpos, ypos, mode.width, mode.height);
     }
     else
-        contentRect = NSMakeRect(0, 0, wndconfig->width, wndconfig->height);
+    {
+        if (wndconfig->xpos == GLFW_ANY_POSITION ||
+            wndconfig->ypos == GLFW_ANY_POSITION)
+        {
+            contentRect = NSMakeRect(0, 0, wndconfig->width, wndconfig->height);
+        }
+        else
+        {
+            const int xpos = wndconfig->xpos;
+            const int ypos = _glfwTransformYCocoa(wndconfig->ypos + wndconfig->height - 1);
+            contentRect = NSMakeRect(xpos, ypos, wndconfig->width, wndconfig->height);
+        }
+    }
 
     NSUInteger styleMask = NSWindowStyleMaskMiniaturizable;
 
@@ -821,10 +839,14 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
         [window->ns.object setLevel:NSMainMenuWindowLevel + 1];
     else
     {
-        [(NSWindow*) window->ns.object center];
-        _glfw.ns.cascadePoint =
-            NSPointToCGPoint([window->ns.object cascadeTopLeftFromPoint:
-                              NSPointFromCGPoint(_glfw.ns.cascadePoint)]);
+        if (wndconfig->xpos == GLFW_ANY_POSITION ||
+            wndconfig->ypos == GLFW_ANY_POSITION)
+        {
+            [(NSWindow*) window->ns.object center];
+            _glfw.ns.cascadePoint =
+                NSPointToCGPoint([window->ns.object cascadeTopLeftFromPoint:
+                                NSPointFromCGPoint(_glfw.ns.cascadePoint)]);
+        }
 
         if (wndconfig->resizable)
         {
@@ -851,7 +873,7 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
         [window->ns.object setFrameAutosaveName:@(wndconfig->ns.frameName)];
 
     window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
-    window->ns.retina = wndconfig->ns.retina;
+    window->ns.scaleFramebuffer = wndconfig->scaleFramebuffer;
 
     if (fbconfig->transparent)
     {
@@ -1261,7 +1283,7 @@ void _glfwSetWindowMonitorCocoa(_GLFWwindow* window,
 
     if (window->monitor)
     {
-        styleMask &= ~(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable);
+        styleMask &= ~(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable);
         styleMask |= NSWindowStyleMaskBorderless;
     }
     else
@@ -1619,8 +1641,16 @@ void _glfwSetCursorPosCocoa(_GLFWwindow* window, double x, double y)
 void _glfwSetCursorModeCocoa(_GLFWwindow* window, int mode)
 {
     @autoreleasepool {
+
+    if (mode == GLFW_CURSOR_CAPTURED)
+    {
+        _glfwInputError(GLFW_FEATURE_UNIMPLEMENTED,
+                        "Cocoa: Captured cursor mode not yet implemented");
+    }
+
     if (_glfwWindowFocusedCocoa(window))
         updateCursorMode(window);
+
     } // autoreleasepool
 }
 
@@ -1628,14 +1658,15 @@ const char* _glfwGetScancodeNameCocoa(int scancode)
 {
     @autoreleasepool {
 
-    if (scancode < 0 || scancode > 0xff ||
-        _glfw.ns.keycodes[scancode] == GLFW_KEY_UNKNOWN)
+    if (scancode < 0 || scancode > 0xff)
     {
         _glfwInputError(GLFW_INVALID_VALUE, "Invalid scancode %i", scancode);
         return NULL;
     }
 
     const int key = _glfw.ns.keycodes[scancode];
+    if (key == GLFW_KEY_UNKNOWN)
+        return NULL;
 
     UInt32 deadKeyState = 0;
     UniChar characters[4];
@@ -1919,19 +1950,8 @@ VkResult _glfwCreateWindowSurfaceCocoa(VkInstance instance,
 {
     @autoreleasepool {
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101100
-    // HACK: Dynamically load Core Animation to avoid adding an extra
-    //       dependency for the majority who don't use MoltenVK
-    NSBundle* bundle = [NSBundle bundleWithPath:@"/System/Library/Frameworks/QuartzCore.framework"];
-    if (!bundle)
-    {
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "Cocoa: Failed to find QuartzCore.framework");
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
-
     // NOTE: Create the layer here as makeBackingLayer should not return nil
-    window->ns.layer = [[bundle classNamed:@"CAMetalLayer"] layer];
+    window->ns.layer = [CAMetalLayer layer];
     if (!window->ns.layer)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR,
@@ -1939,7 +1959,7 @@ VkResult _glfwCreateWindowSurfaceCocoa(VkInstance instance,
         return VK_ERROR_EXTENSION_NOT_PRESENT;
     }
 
-    if (window->ns.retina)
+    if (window->ns.scaleFramebuffer)
         [window->ns.layer setContentsScale:[window->ns.object backingScaleFactor]];
 
     [window->ns.view setLayer:window->ns.layer];
@@ -1996,9 +2016,6 @@ VkResult _glfwCreateWindowSurfaceCocoa(VkInstance instance,
     }
 
     return err;
-#else
-    return VK_ERROR_EXTENSION_NOT_PRESENT;
-#endif
 
     } // autoreleasepool
 }
@@ -2010,16 +2027,37 @@ VkResult _glfwCreateWindowSurfaceCocoa(VkInstance instance,
 
 GLFWAPI id glfwGetCocoaWindow(GLFWwindow* handle)
 {
-    _GLFWwindow* window = (_GLFWwindow*) handle;
     _GLFW_REQUIRE_INIT_OR_RETURN(nil);
 
     if (_glfw.platform.platformID != GLFW_PLATFORM_COCOA)
     {
         _glfwInputError(GLFW_PLATFORM_UNAVAILABLE,
                         "Cocoa: Platform not initialized");
-        return NULL;
+        return nil;
     }
+
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
 
     return window->ns.object;
 }
+
+GLFWAPI id glfwGetCocoaView(GLFWwindow* handle)
+{
+    _GLFW_REQUIRE_INIT_OR_RETURN(nil);
+
+    if (_glfw.platform.platformID != GLFW_PLATFORM_COCOA)
+    {
+        _glfwInputError(GLFW_PLATFORM_UNAVAILABLE,
+                        "Cocoa: Platform not initialized");
+        return nil;
+    }
+
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
+
+    return window->ns.view;
+}
+
+#endif // _GLFW_COCOA
 

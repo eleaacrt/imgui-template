@@ -2,9 +2,9 @@
 #include "headers/App.hpp"
 
 
-int main()
+int main(int argc, char** argv)
 {
     App app;
     app.init();
-    app.update();
+    app.update( argc, argv);
 }

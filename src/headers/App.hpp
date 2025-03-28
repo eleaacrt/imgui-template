@@ -13,7 +13,7 @@ public:
     ~App() = default;
 
     void init() const;
-    void update();
+    void update(int argc, char** argv);
 
 private:
     Board  board;
