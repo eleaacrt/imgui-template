@@ -49,6 +49,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE quick_imgui::quick_imgui)
 add_subdirectory(lib/glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm)
 
+# Ajout de la bibliothèque glmax
+add_subdirectory(lib/glmax)
+target_link_libraries(${PROJECT_NAME} PRIVATE glmax)
+
 
 include("CMakeUtils/files_and_folders.cmake")
 Cool__target_copy_folder(${PROJECT_NAME} assets)
