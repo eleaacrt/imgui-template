@@ -50,3 +50,19 @@ bool Queen::get_moves(Coordinates from, Coordinates to, const Board& board)
 
     return true;
 }
+
+/* --------------------------------
+        3D
+-------------------------------- */
+
+void Queen::draw(Colors color)
+{
+    color == Colors::Black ? _queen.load_mesh(_path_black, _name) : _queen.load_mesh(_path_white, _name);
+    _queen.setup_buffers();
+}
+
+void Queen::render(glmax::Shader& shader)
+{
+    shader.set_uniform_matrix_4fv("model", _model_matrix);
+    _queen.render(shader);
+}

@@ -1,6 +1,8 @@
 #include "headers/Board.hpp"
-#include "headers/App.hpp"
 #include <imgui.h>
+#include <cstddef>
+#include <glm/gtc/matrix_transform.hpp>
+#include "headers/App.hpp"
 #include "headers/utils.hpp"
 
 void Board::draw_box(int id, ImVec4 color, const string& label) const
@@ -8,7 +10,7 @@ void Board::draw_box(int id, ImVec4 color, const string& label) const
     ImGui::PushStyleColor(ImGuiCol_Button, color);
     ImGui::PushStyleColor(ImGuiCol_Text, {0.f, 0.f, 0.f, 1.f});
     ImGui::PushID(id);
-    ImGui::Button(label.c_str(), ImVec2{100.f, 100.f});
+    ImGui::Button(label.c_str(), ImVec2{30.f, 30.f});
     ImGui::PopID();
     ImGui::PopStyleColor();
     ImGui::PopStyleColor();
@@ -17,6 +19,14 @@ void Board::draw_box(int id, ImVec4 color, const string& label) const
 int Board::at(int x, int y) const
 {
     return (y * _board_size + x);
+}
+
+Coordinates Board::id_to_coord(int id) const
+{
+    Coordinates coord;
+    coord.x = id % _board_size; // Colonne
+    coord.y = id / _board_size; // Ligne
+    return coord;
 }
 
 int Board::distance(int x1, int x2) const
@@ -188,6 +198,50 @@ void Board::handle_click(int x, int y)
         {
             move_piece(to);
             reset_turn();
+        }
+    }
+}
+
+/* --------------------------------
+            3D
+-------------------------------- */
+
+void Board::draw_board_3D()
+{
+    _board3D.load_mesh(_path, _name);
+    _board3D.setup_buffers();
+}
+
+void Board::render(glmax::Shader& shader)
+{
+    _board3D.render(shader);
+}
+
+void Board::draw_pieces_3D()
+{
+    // for (const auto& piece : _board)
+    for (size_t id = 0; id < _board.size(); id++)
+    {
+        if (_board[id] != nullptr)
+        {
+            _board[id]->draw(_board[id]->get_color());
+        }
+    }
+}
+
+void Board::render_pieces_3D(glmax::Shader& shader)
+{
+    for (size_t id = 0; id < _board.size(); id++)
+    {
+        if (_board[id] != nullptr)
+        {
+            Coordinates to    = id_to_coord(id);
+            glm::mat4   model = glm::mat4(1.0f);
+            float       x     = 2 * to.x - _board_size + 1;
+            float       y     = 2 * to.y - _board_size + 1;
+            model             = glm::translate(model, glm::vec3(x, 0.0f, y));
+            _board[id]->set_model_matrix(model);
+            _board[id]->render(shader);
         }
     }
 }

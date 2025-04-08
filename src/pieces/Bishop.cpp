@@ -1,6 +1,6 @@
 #include "headers/pieces/Bishop.hpp"
 #include "headers/Board.hpp"
-
+#include "headers/utils.hpp"
 
 Pieces Bishop::get_type() const
 {
@@ -50,4 +50,20 @@ bool Bishop::get_moves(Coordinates from, Coordinates to, const Board& board)
     }
 
     return true;
+}
+
+/* --------------------------------
+        3D
+-------------------------------- */
+
+void Bishop::draw(Colors color)
+{
+    color == Colors::Black ? _bishop.load_mesh(_path_black, _name) : _bishop.load_mesh(_path_white, _name);
+    _bishop.setup_buffers();
+}
+
+void Bishop::render(glmax::Shader& shader)
+{
+    shader.set_uniform_matrix_4fv("model", _model_matrix);
+    _bishop.render(shader);
 }

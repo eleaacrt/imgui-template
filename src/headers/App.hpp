@@ -5,7 +5,6 @@
 #include <vector>
 #include "glimac/Program.hpp"
 #include "headers/Board.hpp"
-#include "headers/Board3D.hpp"
 #include "headers/utils.hpp"
 
 using namespace std;
@@ -24,6 +23,6 @@ public:
 
 private:
     Board   board;
-    Board3D board3D;
     Colors  player = Colors::White;
+    vector<Model3D> models;
 };

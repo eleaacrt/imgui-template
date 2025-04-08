@@ -66,3 +66,19 @@ bool Pawn::get_moves(Coordinates from, Coordinates to, const Board& board)
 
     return false;
 }
+
+/* --------------------------------
+        3D
+-------------------------------- */
+
+void Pawn::draw(Colors color)
+{
+    color == Colors::Black ? _pawn.load_mesh(_path_black, _name) : _pawn.load_mesh(_path_white, _name);
+    _pawn.setup_buffers();
+}
+
+void Pawn::render(glmax::Shader& shader)
+{
+    shader.set_uniform_matrix_4fv("model", _model_matrix);
+    _pawn.render(shader);
+}

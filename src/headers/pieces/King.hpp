@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Piece.hpp"
+#include "Model3D.hpp"
 
 class King : public Piece {
 public:
@@ -9,10 +10,24 @@ public:
     {
         _black_label = "l";
         _white_label = "k";
+        _path_white        = "king/king.obj";
+        _path_black        = "king/king_b.obj";
+        _name        = "king";
     }
 
     Pieces get_type() const override;
     string get_label() const override;
     string get_name() const override;
 
-    bool get_moves(Coordinates from, Coordinates to, const Board& board) override;};
+    bool get_moves(Coordinates from, Coordinates to, const Board& board) override;
+
+    /* --------------------------------
+            3D
+    -------------------------------- */
+
+    void draw(Colors color) override;
+    void render(glmax::Shader& shader) override;
+
+private:
+    Model3D _king;
+};

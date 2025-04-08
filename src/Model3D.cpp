@@ -73,3 +73,4 @@ void Model3D::render(glmax::Shader& shader) const
 
     m_vao.unbind();
 }
+

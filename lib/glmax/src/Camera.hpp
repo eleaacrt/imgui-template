@@ -6,7 +6,7 @@ namespace glmax {
 
 class Camera {
 private:
-    glm::vec3 _position = glm::vec3(0.0f, 0.0f, 16.0f);
+    glm::vec3 _position = glm::vec3(0.0f, 3.0f, 20.0f);
     glm::vec3 _target   = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 _front    = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 _up       = glm::vec3(0.0f, 1.0f, 0.0f);

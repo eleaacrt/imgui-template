@@ -50,3 +50,19 @@ bool Rook::get_moves(Coordinates from, Coordinates to, const Board& board)
 
     return true;
 }
+
+/* --------------------------------
+        3D
+-------------------------------- */
+
+void Rook::draw(Colors color)
+{
+    color == Colors::Black ? _rook.load_mesh(_path_black, _name) : _rook.load_mesh(_path_white, _name);
+    _rook.setup_buffers();
+}
+
+void Rook::render(glmax::Shader& shader)
+{
+    shader.set_uniform_matrix_4fv("model", _model_matrix);
+    _rook.render(shader);
+}

@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <array>
 #include <memory>
+#include "Model3D.hpp"
 #include "Piece.hpp"
 #include "pieces/Bishop.hpp"
 #include "pieces/King.hpp"
@@ -19,7 +20,8 @@ public:
     Board()  = default;
     ~Board() = default;
 
-    int  at(int x, int y) const;
+    int at(int x, int y) const;
+    Coordinates id_to_coord(int id) const;
     int distance(int x1, int x2) const;
 
     void draw_board();
@@ -38,8 +40,17 @@ public:
 
     Piece* get_piece(int id) const;
 
-private:
+    /* --------------------------------
+                3D
+    -------------------------------- */
 
+    void draw_board_3D();
+    void render(glmax::Shader& shader);
+
+    void draw_pieces_3D();
+    void render_pieces_3D(glmax::Shader& shader);
+
+private:
     void draw_row(int y);
     void draw_cell(int x, int y);
 
@@ -65,4 +76,13 @@ private:
     bool _is_clicked = false;
 
     Colors _current_player = Colors::White;
+
+    /* --------------------------------
+            3D
+    -------------------------------- */
+
+    Model3D _board3D;
+
+    string _path = "board/board.obj";
+    string _name = "board";
 };
