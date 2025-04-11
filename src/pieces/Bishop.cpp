@@ -1,6 +1,7 @@
 #include "headers/pieces/Bishop.hpp"
 #include "headers/Board.hpp"
 #include "headers/utils.hpp"
+#include "glm/ext/matrix_transform.hpp"
 
 Pieces Bishop::get_type() const
 {
@@ -62,8 +63,24 @@ void Bishop::draw(Colors color)
     _bishop.setup_buffers();
 }
 
-void Bishop::render(glmax::Shader& shader)
+void Bishop::render(glmax::Shader& shader, Colors color)
 {
+    rotate(color);
     shader.set_uniform_matrix_4fv("model", _model_matrix);
     _bishop.render(shader);
+}
+
+void Bishop::rotate(Colors color)
+{
+    // rotation
+    if (_color == Colors::White)
+    {
+        // Rotation de 90° vers la droite (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+    else if (_color == Colors::Black)
+    {
+        // Rotation de 90° vers la gauche (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
 }

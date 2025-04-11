@@ -1,5 +1,6 @@
 #include "headers/pieces/Rook.hpp"
 #include "headers/Board.hpp"
+#include "glm/ext/matrix_transform.hpp"
 
 Pieces Rook::get_type() const
 {
@@ -61,8 +62,24 @@ void Rook::draw(Colors color)
     _rook.setup_buffers();
 }
 
-void Rook::render(glmax::Shader& shader)
+void Rook::render(glmax::Shader& shader, Colors color)
 {
+    rotate(color);
     shader.set_uniform_matrix_4fv("model", _model_matrix);
     _rook.render(shader);
+}
+
+void Rook::rotate(Colors color)
+{
+    // rotation
+    if (_color == Colors::White)
+    {
+        // Rotation de 90° vers la droite (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+    else if (_color == Colors::Black)
+    {
+        // Rotation de 90° vers la gauche (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
 }

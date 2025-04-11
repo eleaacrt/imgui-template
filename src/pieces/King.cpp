@@ -1,4 +1,5 @@
 #include "headers/pieces/King.hpp"
+#include "glm/ext/matrix_transform.hpp"
 
 Pieces King::get_type() const
 {
@@ -37,8 +38,24 @@ void King::draw(Colors color)
     _king.setup_buffers();
 }
 
-void King::render(glmax::Shader& shader)
+void King::render(glmax::Shader& shader, Colors color)
 {
+    rotate(color);
     shader.set_uniform_matrix_4fv("model", _model_matrix);
     _king.render(shader);
+}
+
+void King::rotate(Colors color)
+{
+    // rotation
+    if (_color == Colors::White)
+    {
+        // Rotation de 90° vers la droite (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+    else if (_color == Colors::Black)
+    {
+        // Rotation de 90° vers la gauche (axe Y)
+        _model_matrix = glm::rotate(_model_matrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
 }

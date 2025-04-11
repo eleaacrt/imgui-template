@@ -28,8 +28,9 @@ public:
             3D
     -------------------------------- */
 
-    virtual void draw(Colors color)            = 0;
-    virtual void render(glmax::Shader& shader) = 0;
+    virtual void draw(Colors color)                          = 0;
+    virtual void render(glmax::Shader& shader, Colors color) = 0;
+    virtual void rotate(Colors color)                        = 0;
 
     void set_model_matrix(const glm::mat4& model) { _model_matrix = model; }
 

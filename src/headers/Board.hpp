@@ -55,7 +55,7 @@ private:
     void draw_cell(int x, int y);
 
     int    _board_size = 8;
-    ImVec4 _color_1    = {0.482353f, 0.407843f, 0.933333f, 1.f};
+    ImVec4 _color_1    = {0.937f, 0.2938f, 0.3782f, 1.f};
     ImVec4 _color_2    = {0.9019608f, 0.9019608f, 0.980392f, 1.f};
 
     Coordinates _from, _to;

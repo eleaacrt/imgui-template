@@ -1,4 +1,5 @@
 #include "headers/App.hpp"
+#include <imgui.h>
 #include <Camera.hpp>
 #include <Shader.hpp>
 #include <glm/glm.hpp>
@@ -59,10 +60,9 @@ void App::update(int argc, char** argv)
                 shader.load_shader("model.vs.glsl", "model.fs.glsl");
 
                 board.draw_board_3D();
-                board.draw_pieces_3D();
-            },
+                board.draw_pieces_3D(); },
 
-            .loop                     = [&]() {
+            .loop = [&]() {
                 //                
 
                 glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -78,8 +78,11 @@ void App::update(int argc, char** argv)
                 shader.set_uniform_matrix_4fv("projection", projection);
 
                 // LIGHT SETTINGS
-                shader.set_uniform_3fv("lightPos", glm::vec3(2.0f, 3.0f, 0.0f));
+                shader.set_uniform_3fv("lightPos", glm::vec3(15.0f, 3.0f, 1.0f));
                 shader.set_uniform_3fv("lightColor", glm::vec3(0.9f, 0.8f, 0.7f));
+
+                shader.set_uniform_3fv("light2Pos", glm::vec3(-15.0f, 4.0f, 1.0f));
+                shader.set_uniform_3fv("light2Color", glm::vec3(0.5f, 0.5f, 1.f));
 
                 // CAMERA SETTINGS
                 shader.set_uniform_3fv("viewPos", camera.get_position());
@@ -88,20 +91,18 @@ void App::update(int argc, char** argv)
                 board.draw_board();
 
                 board.render(shader);
-                board.render_pieces_3D(shader);
+                board.render_pieces_3D(shader); },
 
+            .key_callback             = [&](int key, int scancode, int action, int mods) { std::cout << "Key: " << key << " Scancode: " << scancode << " Action: " << action << " Mods: " << mods << '\n'; 
+                if(ImGui::IsKeyDown(ImGuiKey_Space)){
+                    camera.toggle_lock();
+                } },
+            .mouse_button_callback    = [&](int button, int action, int mods) { std::cout << "Button: " << button << " Action: " << action << " Mods: " << mods << '\n'; 
                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
                 {
                     std::cout << "right click" << '\n';
                     board.reset_turn();
-                    // return;
                 } },
-
-            .key_callback             = [&](int key, int scancode, int action, int mods) { std::cout << "Key: " << key << " Scancode: " << scancode << " Action: " << action << " Mods: " << mods << '\n'; },
-            .mouse_button_callback    = [&](int button, int action, int mods) { std::cout << "Button: " << button << " Action: " << action << " Mods: " << mods << '\n'; 
-            if(ImGui::IsMouseClicked(ImGuiMouseButton_Left)){
-                camera.toggle_lock();
-            } },
             .cursor_position_callback = [&](double xpos, double ypos) { camera.track_ball_move_callback(-xpos, -ypos); },
             .scroll_callback          = [&](double xoffset, double yoffset) { camera.process_scroll(yoffset); },
             .window_size_callback     = [&](int width, int height) { std::cout << "Resized: " << width << ' ' << height << '\n'; },

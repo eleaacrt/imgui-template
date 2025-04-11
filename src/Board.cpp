@@ -241,7 +241,7 @@ void Board::render_pieces_3D(glmax::Shader& shader)
             float       y     = 2 * to.y - _board_size + 1;
             model             = glm::translate(model, glm::vec3(x, 0.0f, y));
             _board[id]->set_model_matrix(model);
-            _board[id]->render(shader);
+            _board[id]->render(shader, _board[id]->get_color());
         }
     }
 }

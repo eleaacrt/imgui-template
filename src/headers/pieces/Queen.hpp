@@ -24,7 +24,8 @@ public:
     -------------------------------- */
 
     void draw(Colors color) override;
-    void render(glmax::Shader& shader) override;
+    void render(glmax::Shader& shader, Colors color) override;
+    void rotate(Colors color) override;
 
     private:
     Model3D _queen;
